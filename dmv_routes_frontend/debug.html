@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - 路線資料</title>
+</head>
+<body>
+    <h1>路線資料除錯頁面</h1>
+    <button onclick="testAPI()">測試API</button>
+    <div id="output"></div>
+
+    <script>
+        async function testAPI() {
+            const output = document.getElementById('output');
+            try {
+                console.log('開始測試API...');
+                const response = await fetch('/api/routes');
+                console.log('回應狀態:', response.status);
+                
+                const data = await response.json();
+                console.log('資料結構:', Object.keys(data));
+                
+                if (data.success && data.routes.length > 0) {
+                    const firstRoute = data.routes[0];
+                    console.log('第一筆資料的欄位:', Object.keys(firstRoute));
+                    
+                    output.innerHTML = `
+                        <h3>API測試成功</h3>
+                        <p>總筆數: ${data.routes.length}</p>
+                        <p>統計: ${JSON.stringify(data.statistics)}</p>
+                        <h4>第一筆資料:</h4>
+                        <pre>${JSON.stringify(firstRoute, null, 2)}</pre>
+                    `;
+                } else {
+                    output.innerHTML = `<p style="color: red;">API回傳失敗: ${data.error || '未知錯誤'}</p>`;
+                }
+            } catch (error) {
+                console.error('錯誤:', error);
+                output.innerHTML = `<p style="color: red;">連線錯誤: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
