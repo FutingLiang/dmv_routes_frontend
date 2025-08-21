@@ -43,7 +43,7 @@ pip install -r requirements.txt
 `app.py` 會讀取環境變數 `PG_DSN`，若未設定，預設為：
 
 ```
-postgresql+psycopg2://postgres:s8304021@localhost:5432/postgres
+postgresql+psycopg2://postgres:@localhost:5432/postgres
 ```
 
 建議以環境變數覆寫（密碼請改為你自己的）：
@@ -140,3 +140,4 @@ python simple_migrate.py
 ## 授權
 
 本專案未設定授權，若需開源請補上 LICENSE。
+
