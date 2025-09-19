@@ -218,17 +218,17 @@ async function loadDetailedStatistics() {
             throw new Error(data.error || '載入詳細統計失敗');
         }
         
-        updateDetailedStatisticsTable(data.detailed_statistics, data.district_totals, data.grand_totals);
+        updateDetailedStatisticsTable(data.detailed_statistics, data.district_totals);
         
     } catch (error) {
         console.error('載入詳細統計失敗:', error);
         document.getElementById('detailed-stats-body').innerHTML = 
-            '<tr><td colspan="6" class="text-center text-danger">載入統計資料失敗</td></tr>';
+            '<tr><td colspan="5" class="text-center text-danger">載入統計資料失敗</td></tr>';
     }
 }
 
 // 更新詳細統計表格
-function updateDetailedStatisticsTable(detailedStats, districtTotals, grandTotals) {
+function updateDetailedStatisticsTable(detailedStats, districtTotals) {
     const tbody = document.getElementById('detailed-stats-body');
     let html = '';
     
@@ -241,179 +241,56 @@ function updateDetailedStatisticsTable(detailedStats, districtTotals, grandTotal
         const companies = detailedStats[district];
         const companyNames = Object.keys(companies).sort();
         
+        // 監理所標題行
         if (companyNames.length > 0) {
-            let firstRow = true;
-            const rowSpan = companyNames.length + 1; // +1 for subtotal
-            
-            companyNames.forEach((company, idx) => {
-                const data = companies[company];
-                const hwyRoutes = data.hwy_routes || 0;
-                const localRoutes = data.local_routes || 0;
-                const hwyOps = hwyRoutes > 0 ? 1 : 0; // 該公司該類型是否有路線
-                const localOps = localRoutes > 0 ? 1 : 0;
-                const rowClass = idx === 0 ? 'district-separator' : '';
-                
-                html += `<tr class="${rowClass}">`;
-                if (firstRow) {
-                    html += `<td rowspan="${rowSpan}" class="align-middle fw-bold">${district}</td>`;
-                    firstRow = false;
-                }
-                html += `
-                    <td>${company}</td>
-                    <td class="text-center">${hwyRoutes}</td>
-                    <td class="text-center">${hwyOps}</td>
-                    <td class="text-center">${localRoutes}</td>
-                    <td class="text-center">${localOps}</td>
-                </tr>`;
-            });
-
-            // 小計列（每個監理所）
-            const dtRaw = districtTotals[district] || { hwy_routes: 0, local_routes: 0 };
-            const compMap = detailedStats[district] || {};
-            const fallbackHwyOps = Object.values(compMap).reduce((sum, rec) => sum + ((rec.hwy_routes || 0) > 0 ? 1 : 0), 0);
-            const fallbackLocalOps = Object.values(compMap).reduce((sum, rec) => sum + ((rec.local_routes || 0) > 0 ? 1 : 0), 0);
-            const dtHwyOps = typeof dtRaw.hwy_companies === 'number' ? dtRaw.hwy_companies : fallbackHwyOps;
-            const dtLocalOps = typeof dtRaw.local_companies === 'number' ? dtRaw.local_companies : fallbackLocalOps;
-
             html += `
-                <tr class="table-secondary fw-bold">
-                    <td>小計</td>
-                    <td class="text-center">${dtRaw.hwy_routes || 0}</td>
-                    <td class="text-center">${dtHwyOps}</td>
-                    <td class="text-center">${dtRaw.local_routes || 0}</td>
-                    <td class="text-center">${dtLocalOps}</td>
+                <tr class="table-secondary">
+                    <td rowspan="${companyNames.length + 1}" class="align-middle fw-bold">${district}</td>
                 </tr>
             `;
+            
+            // 各客運公司資料
+            companyNames.forEach((company, idx) => {
+                const data = companies[company];
+                const rowClass = idx === 0 ? 'district-separator' : '';
+                html += `
+                    <tr class="${rowClass}">
+                        <td>${company}</td>
+                        <td class="text-center">${data.hwy_routes || 0}</td>
+                        <td class="text-center">${data.hwy_routes || 0}</td>
+                        <td class="text-center">${data.local_routes || 0}</td>
+                        <td class="text-center">${data.local_routes || 0}</td>
+                    </tr>
+                `;
+            });
         }
     }
     
-    // 總計
+    // 總計行
     let totalHwyRoutes = 0;
     let totalLocalRoutes = 0;
-    let totalHwyOps = 0;
-    let totalLocalOps = 0;
-
-    if (grandTotals) {
-        totalHwyRoutes = grandTotals.hwy_routes || 0;
-        totalLocalRoutes = grandTotals.local_routes || 0;
-        totalHwyOps = grandTotals.hwy_companies_total || 0;
-        totalLocalOps = grandTotals.local_companies_total || 0;
-    } else {
-        const districts = Object.keys(detailedStats || {});
-        for (const dist of districts) {
-            const compMap2 = detailedStats[dist] || {};
-            totalHwyRoutes += Object.values(compMap2).reduce((s, r) => s + (r.hwy_routes || 0), 0);
-            totalLocalRoutes += Object.values(compMap2).reduce((s, r) => s + (r.local_routes || 0), 0);
-            totalHwyOps += Object.values(compMap2).reduce((s, r) => s + ((r.hwy_routes || 0) > 0 ? 1 : 0), 0);
-            totalLocalOps += Object.values(compMap2).reduce((s, r) => s + ((r.local_routes || 0) > 0 ? 1 : 0), 0);
-        }
-    }
-
+    let totalRoutes = 0;
+    
+    Object.values(districtTotals).forEach(total => {
+        totalHwyRoutes += total.hwy_routes;
+        totalLocalRoutes += total.local_routes;
+        totalRoutes += total.total;
+    });
+    
     html += `
         <tr class="table-dark fw-bold">
             <td>總計</td>
             <td></td>
             <td class="text-center">${totalHwyRoutes}</td>
-            <td class="text-center">${totalHwyOps}</td>
+            <td class="text-center">${totalHwyRoutes}</td>
             <td class="text-center">${totalLocalRoutes}</td>
-            <td class="text-center">${totalLocalOps}</td>
-        </tr>
-    `;
-
-    // 重複業者家數（跨監理所重複，分類型）
-    const hwyCompanyDistricts = new Map();
-    const localCompanyDistricts = new Map();
-    for (const [dist, compMap] of Object.entries(detailedStats || {})) {
-        for (const [company, rec] of Object.entries(compMap || {})) {
-            const hwyCnt = rec.hwy_routes || 0;
-            const localCnt = rec.local_routes || 0;
-            if (hwyCnt > 0) {
-                if (!hwyCompanyDistricts.has(company)) hwyCompanyDistricts.set(company, new Set());
-                hwyCompanyDistricts.get(company).add(dist);
-            }
-            if (localCnt > 0) {
-                if (!localCompanyDistricts.has(company)) localCompanyDistricts.set(company, new Set());
-                localCompanyDistricts.get(company).add(dist);
-            }
-        }
-    }
-    
-    // 找出重複的業者
-    const duplicateHwyCompanies = Array.from(hwyCompanyDistricts.entries())
-        .filter(([_, districts]) => districts.size > 1)
-        .map(([company, districts]) => ({
-            name: company,
-            districts: Array.from(districts).join('、')
-        }));
-        
-    const duplicateLocalCompanies = Array.from(localCompanyDistricts.entries())
-        .filter(([_, districts]) => districts.size > 1)
-        .map(([company, districts]) => ({
-            name: company,
-            districts: Array.from(districts).join('、')
-        }));
-        
-    const duplicateHwyOps = duplicateHwyCompanies.length;
-    const duplicateLocalOps = duplicateLocalCompanies.length;
-
-    // 重複業者家數列
-    html += `
-        <tr class="table-warning fw-bold">
-            <td>重複業者家數</td>
-            <td></td>
-            <td class="text-center">-</td>
-            <td class="text-center">${duplicateHwyOps}</td>
-            <td class="text-center">-</td>
-            <td class="text-center">${duplicateLocalOps}</td>
+            <td class="text-center">${totalLocalRoutes}</td>
         </tr>
     `;
     
-    // 總計(扣除重複業者家數)
-    const uniqueHwyOps = Math.max(0, totalHwyOps - duplicateHwyOps);
-    const uniqueLocalOps = Math.max(0, totalLocalOps - duplicateLocalOps);
+    tbody.innerHTML = html;
     
-    html += `
-        <tr class="table-info fw-bold">
-            <td>總計(扣除重複業者家數)</td>
-            <td></td>
-            <td class="text-center">-</td>
-            <td class="text-center">${uniqueHwyOps}</td>
-            <td class="text-center">-</td>
-            <td class="text-center">${uniqueLocalOps}</td>
-        </tr>
-    `;
-    
-    // 重複業者清單列
-    html += `
-        <tr class="table-light">
-            <td>重複業者清單</td>
-            <td colspan="5">
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <div class="small fw-bold">國道客運：</div>
-                        ${duplicateHwyOps > 0 
-                            ? duplicateHwyCompanies.map(c => 
-                                `<div class="ms-3">${c.name} <span class="text-muted small">(${c.districts})</span></div>`
-                              ).join('') 
-                            : '<div class="ms-3 text-muted">無</div>'}
-                    </div>
-                    <div class="col-md-6">
-                        <div class="small fw-bold">一般公路：</div>
-                        ${duplicateLocalOps > 0 
-                            ? duplicateLocalCompanies.map(c => 
-                                `<div class="ms-3">${c.name} <span class="text-muted small">(${c.districts})</span></div>`
-                              ).join('') 
-                            : '<div class="ms-3 text-muted">無</div>'}
-                    </div>
-                </div>
-            </td>
-        </tr>
-    `;
-    
-    tbody.innerHTML = html || '<tr><td colspan="6" class="text-center text-muted">無資料</td></tr>';
-    
-    // 更新摘要（總業者家數=各區公司數相加；總路線數=總計路線數）
-    const totalRoutes = (totalHwyRoutes || 0) + (totalLocalRoutes || 0);
+    // 更新摘要資訊
     const totalOperators = Object.values(detailedStats).reduce((sum, district) => sum + Object.keys(district).length, 0);
     document.getElementById('summary-operators').textContent = totalOperators;
     document.getElementById('summary-routes').textContent = totalRoutes;
